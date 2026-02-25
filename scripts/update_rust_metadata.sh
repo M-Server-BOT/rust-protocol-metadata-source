@@ -295,16 +295,13 @@ Automatic Rust/Oxide metadata snapshot.
 - Oxide latest tag: $(jq -r '.oxide.latest_tag // "n/a"' "$OUT_JSON")
 REL
 
-echo "Creating release ${RELEASE_TAG}..."
 if [[ -n "$RUST_GLOBAL_DLL" && -f "$RUST_GLOBAL_DLL" ]]; then
-  gh release create "$RELEASE_TAG" \
-    "$OUT_JSON" \
-    "$RUST_GLOBAL_DLL#Rust.Global.dll" \
-    --title "Rust metadata ${CHANNEL} / build ${BUILD_ID_TAG} / protocol ${PROTOCOL_NETWORK_TAG}" \
-    --notes-file "$RELEASE_NOTES"
-else
-  gh release create "$RELEASE_TAG" \
-    "$OUT_JSON" \
-    --title "Rust metadata ${CHANNEL} / build ${BUILD_ID_TAG} / protocol ${PROTOCOL_NETWORK_TAG}" \
-    --notes-file "$RELEASE_NOTES"
+  echo "Removing temporary Rust.Global.dll before release packaging..."
+  rm -f "$RUST_GLOBAL_DLL"
 fi
+
+echo "Creating release ${RELEASE_TAG}..."
+gh release create "$RELEASE_TAG" \
+  "$OUT_JSON" \
+  --title "Rust metadata ${CHANNEL} / build ${BUILD_ID_TAG} / protocol ${PROTOCOL_NETWORK_TAG}" \
+  --notes-file "$RELEASE_NOTES"
