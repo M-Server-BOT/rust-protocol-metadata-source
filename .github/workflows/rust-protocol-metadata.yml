@@ -16,6 +16,8 @@ jobs:
 
       - name: Pre-check Rust build (web-only)
         id: precheck
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           bash scripts/precheck_rust_release.sh
 

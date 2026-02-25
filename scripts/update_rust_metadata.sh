@@ -4,11 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="${ROOT_DIR}/.tmp/rust-metadata"
 TOOLS_DIR="${ROOT_DIR}/.tools/depotdownloader"
-OUT_DIR="${ROOT_DIR}/data"
-OUT_JSON="${OUT_DIR}/rust-versions-public.json"
+OUT_JSON="${TMP_DIR}/rust-versions-public.json"
 CANDIDATE_JSON="${TMP_DIR}/candidate.json"
 PROBE_JSON="${TMP_DIR}/protocol.json"
 OXIDE_JSON="${TMP_DIR}/oxide-release.json"
+LATEST_RELEASE_JSON="${TMP_DIR}/latest-release.json"
+PREV_RELEASE_JSON="${TMP_DIR}/prev-release.json"
 RELEASE_NOTES="${TMP_DIR}/release-notes.txt"
 FILELIST="${TMP_DIR}/filelist.txt"
 DOWNLOAD_DIR="${TMP_DIR}/depot"
@@ -22,8 +23,11 @@ RUST_DEPOT_ID="${RUST_DEPOT_ID:-258552}"
 STEAMDB_BRANCH="${STEAMDB_BRANCH:-${CHANNEL}}"
 STEAMDB_DEPOTS_URL="${STEAMDB_DEPOTS_URL:-https://steamdb.info/app/${RUST_APP_ID}/depots/}"
 STEAMCMD_INFO_URL="${STEAMCMD_INFO_URL:-https://api.steamcmd.net/v1/info/${RUST_APP_ID}}"
+GITHUB_REPO_SLUG="${GITHUB_REPOSITORY:-${GITHUB_REPO_SLUG:-}}"
+GITHUB_API_BASE="${GITHUB_API_URL:-https://api.github.com}"
+GITHUB_RELEASE_LATEST_URL="${GITHUB_RELEASE_LATEST_URL:-${GITHUB_API_BASE}/repos/${GITHUB_REPO_SLUG}/releases/latest}"
 
-mkdir -p "$TMP_DIR" "$TOOLS_DIR" "$OUT_DIR"
+mkdir -p "$TMP_DIR" "$TOOLS_DIR"
 rm -rf "$DOWNLOAD_DIR"
 mkdir -p "$DOWNLOAD_DIR"
 
@@ -40,20 +44,48 @@ require_bin unzip
 require_bin sha256sum
 require_bin dotnet
 require_bin gh
+GITHUB_JSON_HEADERS=(-H "Accept: application/vnd.github+json")
+GITHUB_ASSET_HEADERS=(-H "Accept: application/octet-stream")
+if [[ -n "${GH_TOKEN:-}" ]]; then
+  GITHUB_JSON_HEADERS+=(-H "Authorization: Bearer ${GH_TOKEN}")
+  GITHUB_ASSET_HEADERS+=(-H "Authorization: Bearer ${GH_TOKEN}")
+fi
+
 PREV_BUILD_ID=""
 PREV_PROTOCOL_NETWORK=""
 PREV_PROTOCOL_PRINTABLE=""
 PREV_RUST_GLOBAL_SHA256=""
 PREV_MANIFEST_ID=""
-if [[ -f "$OUT_JSON" ]]; then
-  PREV_BUILD_ID="$(jq -r '.rust.build_id // empty' "$OUT_JSON" 2>/dev/null || true)"
-  PREV_MANIFEST_ID="$(jq -r '.rust.manifest_id // empty' "$OUT_JSON" 2>/dev/null || true)"
-  PREV_PROTOCOL_NETWORK="$(jq -r '.rust.protocol.network // empty' "$OUT_JSON" 2>/dev/null || true)"
-  PREV_PROTOCOL_PRINTABLE="$(jq -r '.rust.protocol.printable // empty' "$OUT_JSON" 2>/dev/null || true)"
-  PREV_RUST_GLOBAL_SHA256="$(jq -r '.rust.rust_global_dll.sha256 // empty' "$OUT_JSON" 2>/dev/null || true)"
-  jq '.oxide // null' "$OUT_JSON" >"$PREV_OXIDE_JSON" || echo 'null' >"$PREV_OXIDE_JSON"
-else
-  echo 'null' >"$PREV_OXIDE_JSON"
+PREV_RELEASE_TAG=""
+echo 'null' >"$PREV_OXIDE_JSON"
+
+if [[ -n "$GITHUB_REPO_SLUG" ]]; then
+  RELEASE_HTTP_CODE="$(curl -sSL "${GITHUB_JSON_HEADERS[@]}" -o "$LATEST_RELEASE_JSON" -w '%{http_code}' "$GITHUB_RELEASE_LATEST_URL" || true)"
+  if [[ "$RELEASE_HTTP_CODE" == "200" ]]; then
+    PREV_RELEASE_TAG="$(jq -r '.tag_name // empty' "$LATEST_RELEASE_JSON")"
+    PREV_ASSET_API_URL="$(jq -r '
+      .assets // []
+      | map(select(.name == "rust-versions-public.json"))
+      | first
+      | .url // empty
+    ' "$LATEST_RELEASE_JSON")"
+
+    if [[ -n "$PREV_ASSET_API_URL" ]] && curl -fsSL "${GITHUB_ASSET_HEADERS[@]}" "$PREV_ASSET_API_URL" -o "$PREV_RELEASE_JSON"; then
+      PREV_BUILD_ID="$(jq -r '.rust.build_id // empty' "$PREV_RELEASE_JSON" 2>/dev/null || true)"
+      PREV_MANIFEST_ID="$(jq -r '.rust.manifest_id // empty' "$PREV_RELEASE_JSON" 2>/dev/null || true)"
+      PREV_PROTOCOL_NETWORK="$(jq -r '.rust.protocol.network // empty' "$PREV_RELEASE_JSON" 2>/dev/null || true)"
+      PREV_PROTOCOL_PRINTABLE="$(jq -r '.rust.protocol.printable // empty' "$PREV_RELEASE_JSON" 2>/dev/null || true)"
+      PREV_RUST_GLOBAL_SHA256="$(jq -r '.rust.rust_global_dll.sha256 // empty' "$PREV_RELEASE_JSON" 2>/dev/null || true)"
+      jq '.oxide // null' "$PREV_RELEASE_JSON" >"$PREV_OXIDE_JSON" || echo 'null' >"$PREV_OXIDE_JSON"
+      echo "Loaded previous metadata from release asset (tag: ${PREV_RELEASE_TAG:-n/a})."
+    else
+      echo "Latest release found (${PREV_RELEASE_TAG:-n/a}), but rust-versions-public.json asset is unavailable."
+    fi
+  elif [[ "$RELEASE_HTTP_CODE" == "404" ]]; then
+    echo "No previous GitHub release found yet (first release run)."
+  else
+    echo "Warning: failed to query latest release metadata (HTTP ${RELEASE_HTTP_CODE:-unknown}). Continuing without previous release state."
+  fi
 fi
 
 STEAMDB_STATUS="error"
@@ -253,24 +285,18 @@ jq -n \
     }
   }' >"$CANDIDATE_JSON"
 
-if [[ -f "$OUT_JSON" ]]; then
-  CURRENT_FINGERPRINT="$(jq -S 'del(.checked_at_utc, .source.workflow_run_url)' "$OUT_JSON")"
+if [[ -f "$PREV_RELEASE_JSON" ]]; then
+  CURRENT_FINGERPRINT="$(jq -S 'del(.checked_at_utc, .source.workflow_run_url)' "$PREV_RELEASE_JSON")"
   CANDIDATE_FINGERPRINT="$(jq -S 'del(.checked_at_utc, .source.workflow_run_url)' "$CANDIDATE_JSON")"
   if [[ "$CURRENT_FINGERPRINT" == "$CANDIDATE_FINGERPRINT" ]]; then
-    echo "Rust/Oxide metadata unchanged."
+    echo "Rust/Oxide metadata unchanged vs latest release asset."
     exit 0
   fi
 fi
 
 mv "$CANDIDATE_JSON" "$OUT_JSON"
 
-echo "Metadata changed. Committing updated JSON..."
-git config user.name "github-actions[bot]"
-git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-git add "$OUT_JSON"
-if git commit -m "Update Rust/Oxide metadata"; then
-  git push
-fi
+echo "Metadata changed. Publishing new release asset (no git commit/push)."
 
 PROTOCOL_NETWORK_TAG="$(jq -r '.rust.protocol.network // "na"' "$OUT_JSON")"
 BUILD_ID_TAG="$(jq -r '.rust.build_id // "na"' "$OUT_JSON")"
@@ -281,6 +307,10 @@ RELEASE_TAG="rust-meta-${CHANNEL}-b${BUILD_ID_TAG}-p${PROTOCOL_NETWORK_TAG}-o${O
 
 cat >"$RELEASE_NOTES" <<REL
 Automatic Rust/Oxide metadata snapshot.
+
+Machine-readable fallback hints:
+- metadata_asset_name=rust-versions-public.json
+- build_id=$(jq -r '.rust.build_id // "n/a"' "$OUT_JSON")
 
 - Channel: ${CHANNEL}
 - Rust app/depot: ${RUST_APP_ID}/${RUST_DEPOT_ID}
@@ -293,6 +323,7 @@ Automatic Rust/Oxide metadata snapshot.
 - Rust.Global.dll sha256: $(jq -r '.rust.rust_global_dll.sha256 // "n/a"' "$OUT_JSON")
 - Oxide release probe status: $(jq -r '.status.oxide_release_probe' "$OUT_JSON")
 - Oxide latest tag: $(jq -r '.oxide.latest_tag // "n/a"' "$OUT_JSON")
+- Previous release tag (if any): ${PREV_RELEASE_TAG:-n/a}
 REL
 
 if [[ -n "$RUST_GLOBAL_DLL" && -f "$RUST_GLOBAL_DLL" ]]; then
