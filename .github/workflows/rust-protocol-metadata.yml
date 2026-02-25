@@ -1,0 +1,39 @@
+name: Rust Protocol Metadata Source
+
+on:
+  schedule:
+    - cron: '10 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  probe-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pre-check Rust build (web-only)
+        id: precheck
+        run: |
+          bash scripts/precheck_rust_release.sh
+
+      - name: Skip when Rust build is unchanged
+        if: steps.precheck.outputs.should_run != 'true'
+        run: |
+          echo "Skipping heavy probe: ${{ steps.precheck.outputs.reason }}"
+          echo "build_id=${{ steps.precheck.outputs.build_id }}"
+
+      - name: Setup .NET
+        if: steps.precheck.outputs.should_run == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Update Rust/Oxide metadata source
+        if: steps.precheck.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/update_rust_metadata.sh

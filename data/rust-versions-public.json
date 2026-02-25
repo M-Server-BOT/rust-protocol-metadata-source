@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "checked_at_utc": "2026-02-25T01:40:23Z",
+  "channel": "public",
+  "rust": {
+    "app_id": 258550,
+    "depot_id": 258552,
+    "build_id": 545007312,
+    "manifest_id": "1446847873231358536",
+    "steamdb": {
+      "branch": "public",
+      "depots_url": "https://steamdb.info/app/258550/depots/",
+      "note": "SteamDB HTML may be blocked on GitHub-hosted runners; build_id/manifest_id pre-check currently comes from api.steamcmd.net.",
+      "probe_status": "ok",
+      "time_updated_utc_text": null,
+      "fetch_error": null
+    },
+    "rust_global_dll": {
+      "path": "RustDedicated_Data/Managed/Rust.Global.dll",
+      "sha256": "0036c9c695d01b93fe3e25e5b15dbbc8b565fc302d9f2d3fb165fa7abd899436"
+    },
+    "protocol": {
+      "network": 2621,
+      "printable": null
+    }
+  },
+  "oxide": {
+    "latest_tag": "2.0.7080",
+    "published_at_utc": "2026-02-24T10:13:34Z",
+    "html_url": "https://github.com/OxideMod/Oxide.Rust/releases/tag/2.0.7080",
+    "assets": [
+      {
+        "name": "Oxide.Rust-linux.zip",
+        "size": 12483772,
+        "content_type": "application/zip",
+        "browser_download_url": "https://github.com/OxideMod/Oxide.Rust/releases/download/2.0.7080/Oxide.Rust-linux.zip",
+        "updated_at": "2026-02-24T10:13:35Z"
+      },
+      {
+        "name": "Oxide.Rust.zip",
+        "size": 12488857,
+        "content_type": "application/zip",
+        "browser_download_url": "https://github.com/OxideMod/Oxide.Rust/releases/download/2.0.7080/Oxide.Rust.zip",
+        "updated_at": "2026-02-24T10:13:36Z"
+      }
+    ],
+    "fetched_from_api": true
+  },
+  "status": {
+    "steamdb_probe": "ok",
+    "rust_protocol_probe": "ok",
+    "oxide_release_probe": "ok"
+  },
+  "source": {
+    "transport": "steam (DepotDownloader for DLL, api.steamcmd.net web for pre-check)",
+    "depot_downloader_release": "DepotDownloader_3.4.0",
+    "workflow_run_url": "https://github.com/MONaH-Rasta/GitHub-umod-plugin-updater/actions/runs/22378265070"
+  }
+}
