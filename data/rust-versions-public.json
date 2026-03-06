@@ -1,6 +1,5 @@
 {
   "schema_version": 1,
-  "checked_at_utc": "2026-02-25T01:40:23Z",
   "channel": "public",
   "rust": {
     "app_id": 258550,

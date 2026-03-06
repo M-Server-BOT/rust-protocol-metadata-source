@@ -143,10 +143,7 @@ if [[ -z "$PROTOCOL_NETWORK" && -z "$PROTOCOL_PRINTABLE" ]]; then
   exit 1
 fi
 
-CHECKED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
 jq -n \
-  --arg checked_at "$CHECKED_AT_UTC" \
   --arg channel "$CHANNEL" \
   --argjson rust_app_id "$RUST_APP_ID" \
   --argjson rust_depot_id "$RUST_DEPOT_ID" \
@@ -155,7 +152,6 @@ jq -n \
   --slurpfile probe "$PROBE_JSON" \
   '{
     schema_version: 1,
-    checked_at_utc: $checked_at,
     channel: $channel,
     rust: {
       app_id: $rust_app_id,
@@ -167,8 +163,8 @@ jq -n \
   }' >"$CANDIDATE_JSON"
 
 if [[ -f "$PREV_RELEASE_JSON" ]]; then
-  CURRENT_FINGERPRINT="$(jq -S 'del(.checked_at_utc)' "$PREV_RELEASE_JSON")"
-  CANDIDATE_FINGERPRINT="$(jq -S 'del(.checked_at_utc)' "$CANDIDATE_JSON")"
+  CURRENT_FINGERPRINT="$(jq -S '.' "$PREV_RELEASE_JSON")"
+  CANDIDATE_FINGERPRINT="$(jq -S '.' "$CANDIDATE_JSON")"
   if [[ "$CURRENT_FINGERPRINT" == "$CANDIDATE_FINGERPRINT" ]]; then
     echo "Metadata unchanged vs latest release asset."
     exit 0
@@ -179,10 +175,8 @@ mv "$CANDIDATE_JSON" "$OUT_JSON"
 
 PROTOCOL_NETWORK_TAG="$(jq -r '.rust.protocol.network // "na"' "$OUT_JSON")"
 BUILD_ID_TAG="$(jq -r '.rust.build_id // "na"' "$OUT_JSON")"
-RELEASE_TS_COMPACT="$(date -u +%Y%m%d%H%M%S)"
-RELEASE_TS_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-RELEASE_TAG="rust-meta-${RELEASE_TS_COMPACT}-${CHANNEL}-b${BUILD_ID_TAG}-p${PROTOCOL_NETWORK_TAG}"
-RELEASE_TITLE="${RELEASE_TS_ISO} Rust protocol ${CHANNEL} / build ${BUILD_ID_TAG} / protocol ${PROTOCOL_NETWORK_TAG}"
+RELEASE_TAG="rust-meta-${CHANNEL}-b${BUILD_ID_TAG}-p${PROTOCOL_NETWORK_TAG}"
+RELEASE_TITLE="Rust protocol ${CHANNEL} / build ${BUILD_ID_TAG} / protocol ${PROTOCOL_NETWORK_TAG}"
 
 cat >"$RELEASE_NOTES" <<REL
 Automatic Rust protocol metadata snapshot.
