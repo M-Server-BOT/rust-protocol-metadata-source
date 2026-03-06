@@ -24,7 +24,7 @@ jobs:
       - name: Skip when Rust build is unchanged
         if: steps.precheck.outputs.should_run != 'true'
         run: |
-          echo "Skipping heavy probe: ${{ steps.precheck.outputs.reason }}"
+          echo "Skipping probe: ${{ steps.precheck.outputs.reason }}"
           echo "build_id=${{ steps.precheck.outputs.build_id }}"
 
       - name: Setup .NET
@@ -33,7 +33,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Update Rust/Oxide metadata source
+      - name: Update Rust protocol metadata source
         if: steps.precheck.outputs.should_run == 'true'
         env:
           GH_TOKEN: ${{ github.token }}

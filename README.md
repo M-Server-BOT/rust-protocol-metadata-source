@@ -1,9 +1,10 @@
 # Rust Protocol Metadata Source
 
-Scheduled GitHub Actions workflow that publishes a unified JSON source for:
+Minimal GitHub Actions pipeline that publishes `rust-versions-public.json` for each new Rust server build.
 
-- Rust dedicated server build/manifest metadata (web pre-check via `api.steamcmd.net`)
-- Rust network protocol (`Rust.Global.dll` parsed via DepotDownloader + Mono.Cecil)
-- Oxide latest release metadata (best effort)
+What it does:
+- Web pre-check (`api.steamcmd.net`) to read current `build_id`/`manifest_id`.
+- Skips heavy work if `build_id` matches the latest release asset.
+- Downloads `Rust.Global.dll`, extracts protocol via `tools/RustProtocolProbe`, and publishes a new GitHub release asset.
 
-The workflow performs a lightweight web pre-check first and skips `.NET` setup / DLL download when the Rust `build_id` is unchanged.
+Scope is intentionally narrow: Rust build + protocol only.
