@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "channel": "public",
+  "rust": {
+    "app_id": 258550,
+    "depot_id": 258552,
+    "build_id": 545007312,
+    "manifest_id": "1446847873231358536",
+    "protocol": {
+      "network": 2621,
+      "printable": null
+    }
+  }
+}
